@@ -1,9 +1,9 @@
 use std::io::{Result, Write};
 
-use case::CaseExt;
-use analysis;
-use library;
-use env::Env;
+use crate::case::CaseExt;
+use crate::analysis;
+use crate::library;
+use crate::env::Env;
 use super::child_properties;
 use super::function;
 use super::general;

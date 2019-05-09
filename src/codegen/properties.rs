@@ -1,16 +1,16 @@
 use std::io::{Result, Write};
 
-use analysis::bounds::Bound;
-use analysis::properties::Property;
-use analysis::rust_type::{parameter_rust_type, rust_type};
-use chunk::Chunk;
-use env::Env;
+use crate::analysis::bounds::Bound;
+use crate::analysis::properties::Property;
+use crate::analysis::rust_type::{parameter_rust_type, rust_type};
+use crate::chunk::Chunk;
+use crate::env::Env;
 use super::general::{cfg_deprecated, version_condition};
-use library;
-use writer::primitives::tabs;
+use crate::library;
+use crate::writer::primitives::tabs;
 use super::property_body;
-use traits::IntoString;
-use writer::ToCode;
+use crate::traits::IntoString;
+use crate::writer::ToCode;
 
 pub fn generate(
     w: &mut Write,
@@ -87,7 +87,7 @@ fn declaration(env: &Env, prop: &Property) -> String {
             ..
         }) = prop.bound
         {
-            use library::Type::*;
+            use crate::library::Type::*;
 
             let type_ = env.library.type_(prop.typ);
             let bound_type = match *type_ {
