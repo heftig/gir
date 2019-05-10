@@ -1,20 +1,24 @@
-use std::collections::BTreeMap;
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 use toml::Value;
 
-use crate::library;
-use crate::library::{Library, TypeId, MAIN_NAMESPACE};
-use crate::config::error::TomlHelper;
-use crate::config::parsable::{Parsable, Parse};
-use super::child_properties::ChildProperties;
-use super::derives::Derives;
-use super::functions::Functions;
-use super::constants::Constants;
-use super::members::Members;
-use super::properties::Properties;
-use super::signals::{Signal, Signals};
-use crate::version::Version;
-use crate::analysis::{ref_mode, conversion_type};
+use super::{
+    child_properties::ChildProperties,
+    constants::Constants,
+    derives::Derives,
+    functions::Functions,
+    members::Members,
+    properties::Properties,
+    signals::{Signal, Signals},
+};
+use crate::{
+    analysis::{conversion_type, ref_mode},
+    config::{
+        error::TomlHelper,
+        parsable::{Parsable, Parse},
+    },
+    library::{self, Library, TypeId, MAIN_NAMESPACE},
+    version::Version,
+};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum GStatus {
@@ -241,9 +245,7 @@ fn parse_object(
         .lookup("cfg_condition")
         .and_then(Value::as_str)
         .map(ToOwned::to_owned);
-    let generate_trait = toml_object
-        .lookup("trait")
-        .and_then(Value::as_bool);
+    let generate_trait = toml_object.lookup("trait").and_then(Value::as_bool);
     let final_type = toml_object
         .lookup("final_type")
         .and_then(Value::as_bool)
@@ -295,7 +297,10 @@ fn parse_object(
         .and_then(Value::as_integer)
         .and_then(|v| {
             if v.count_ones() != 1 || v > i64::from(u32::max_value()) || v < 0 {
-                warn!("`align` configuration must be a power of two of type u32, found {}", v);
+                warn!(
+                    "`align` configuration must be a power of two of type u32, found {}",
+                    v
+                );
                 None
             } else {
                 Some(v as u32)
@@ -307,11 +312,17 @@ fn parse_object(
     }
 
     if status != GStatus::Manual && conversion_type.is_some() {
-        warn!("conversion_type configuration used for non-manual object {}", name);
+        warn!(
+            "conversion_type configuration used for non-manual object {}",
+            name
+        );
     }
 
     if generate_trait.is_some() {
-        warn!("`trait` configuration is deprecated and replaced by `final_type` for object {}", name);
+        warn!(
+            "`trait` configuration is deprecated and replaced by `final_type` for object {}",
+            name
+        );
     }
 
     GObject {

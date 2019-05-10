@@ -1,16 +1,21 @@
 use std::io::{Result, Write};
 
-use crate::analysis::bounds::Bound;
-use crate::analysis::properties::Property;
-use crate::analysis::rust_type::{parameter_rust_type, rust_type};
-use crate::chunk::Chunk;
-use crate::env::Env;
-use super::general::{cfg_deprecated, version_condition};
-use crate::library;
-use crate::writer::primitives::tabs;
-use super::property_body;
-use crate::traits::IntoString;
-use crate::writer::ToCode;
+use super::{
+    general::{cfg_deprecated, version_condition},
+    property_body,
+};
+use crate::{
+    analysis::{
+        bounds::Bound,
+        properties::Property,
+        rust_type::{parameter_rust_type, rust_type},
+    },
+    chunk::Chunk,
+    env::Env,
+    library,
+    traits::IntoString,
+    writer::{primitives::tabs, ToCode},
+};
 
 pub fn generate(
     w: &mut Write,
@@ -20,14 +25,7 @@ pub fn generate(
     only_declaration: bool,
     indent: usize,
 ) -> Result<()> {
-    generate_prop_func(
-        w,
-        env,
-        prop,
-        in_trait,
-        only_declaration,
-        indent,
-    )?;
+    generate_prop_func(w, env, prop, in_trait, only_declaration, indent)?;
 
     Ok(())
 }
@@ -105,47 +103,54 @@ fn declaration(env: &Env, prop: &Property) -> String {
                     } else {
                         ""
                     };
-                    bound = format!(
-                        "<{}: IsA<{}>{}>",
-                        alias,
-                        type_str,
-                        value_bound
-                    );
+                    bound = format!("<{}: IsA<{}>{}>", alias, type_str, value_bound);
                     if *prop.nullable {
                         format!("Option<&{}>", alias)
                     } else {
                         format!("&{}", alias)
                     }
                 }
-                _ => {
-                    parameter_rust_type(env, prop.typ, dir, prop.nullable, prop.set_in_ref_mode,
-                                        library::ParameterScope::None)
-                        .into_string()
-                }
+                _ => parameter_rust_type(
+                    env,
+                    prop.typ,
+                    dir,
+                    prop.nullable,
+                    prop.set_in_ref_mode,
+                    library::ParameterScope::None,
+                )
+                .into_string(),
             }
         } else {
-            parameter_rust_type(env, prop.typ, dir, prop.nullable, prop.set_in_ref_mode,
-                                library::ParameterScope::None)
-                .into_string()
+            parameter_rust_type(
+                env,
+                prop.typ,
+                dir,
+                prop.nullable,
+                prop.set_in_ref_mode,
+                library::ParameterScope::None,
+            )
+            .into_string()
         };
         format!(", {}: {}", prop.var_name, param_type)
     };
     let return_str = if prop.is_get {
         let dir = library::ParameterDirection::Return;
-        let ret_type =
-            parameter_rust_type(env, prop.typ, dir, prop.nullable, prop.get_out_ref_mode,
-                                library::ParameterScope::None)
-                .into_string();
+        let ret_type = parameter_rust_type(
+            env,
+            prop.typ,
+            dir,
+            prop.nullable,
+            prop.get_out_ref_mode,
+            library::ParameterScope::None,
+        )
+        .into_string();
         format!(" -> {}", ret_type)
     } else {
         "".to_string()
     };
     format!(
         "fn {}{}(&self{}){}",
-        prop.func_name,
-        bound,
-        set_param,
-        return_str
+        prop.func_name, bound, set_param, return_str
     )
 }
 

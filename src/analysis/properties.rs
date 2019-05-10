@@ -1,16 +1,19 @@
-use crate::analysis::bounds::Bound;
-use crate::analysis::imports::Imports;
-use crate::analysis::ref_mode::RefMode;
-use crate::analysis::rust_type::*;
-use crate::analysis::signals;
-use crate::analysis::signatures::{Signature, Signatures};
-use crate::analysis::trampolines;
-use crate::config::{self, GObject, PropertyGenerateFlags};
-use crate::env::Env;
-use crate::library;
-use crate::nameutil;
-use crate::traits::*;
-use crate::version::Version;
+use crate::{
+    analysis::{
+        bounds::Bound,
+        imports::Imports,
+        ref_mode::RefMode,
+        rust_type::*,
+        signals,
+        signatures::{Signature, Signatures},
+        trampolines,
+    },
+    config::{self, GObject, PropertyGenerateFlags},
+    env::Env,
+    library, nameutil,
+    traits::*,
+    version::Version,
+};
 
 #[derive(Debug)]
 pub struct Property {
@@ -169,15 +172,27 @@ fn analyze_property(
     }
 
     if readable {
-        let (has, version) = Signature::has_for_property(env, &check_get_func_name,
-                                                         true, prop.typ, signatures, deps);
+        let (has, version) = Signature::has_for_property(
+            env,
+            &check_get_func_name,
+            true,
+            prop.typ,
+            signatures,
+            deps,
+        );
         if has && (env.is_totally_deprecated(version) || version <= prop_version) {
             readable = false;
         }
     }
     if writable {
-        let (has, version) = Signature::has_for_property(env, &check_set_func_name,
-                                                         false, prop.typ, signatures, deps);
+        let (has, version) = Signature::has_for_property(
+            env,
+            &check_set_func_name,
+            false,
+            prop.typ,
+            signatures,
+            deps,
+        );
         if has && (env.is_totally_deprecated(version) || version <= prop_version) {
             writable = false;
         }
