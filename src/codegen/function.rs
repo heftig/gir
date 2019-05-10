@@ -17,7 +17,6 @@ use crate::{
         self,
         bounds::{Bound, Bounds},
         functions::Visibility,
-        namespaces,
     },
     chunk::{ffi_function_todo, Chunk},
     env::Env,
@@ -137,11 +136,10 @@ pub fn declaration(env: &Env, analysis: &analysis::functions::Info) -> String {
     let return_str = if outs_as_return {
         out_parameters_as_return(env, analysis)
     } else if analysis.ret.bool_return_is_error.is_some() {
-        if env.namespaces.glib_ns_id == namespaces::MAIN {
-            " -> Result<(), error::BoolError>".into()
-        } else {
-            " -> Result<(), glib::error::BoolError>".into()
-        }
+        format!(
+            " -> Result<(), {}::error::BoolError>",
+            env.namespaces.glib().local_crate_name()
+        )
     } else {
         analysis.ret.to_return_value(env, false)
     };

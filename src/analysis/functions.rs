@@ -490,14 +490,7 @@ fn analyze_function(
     let doc_hidden = configured_functions.iter().any(|f| f.doc_hidden);
     let disable_length_detect = configured_functions.iter().any(|f| f.disable_length_detect);
 
-    let ret = return_value::analyze(
-        env,
-        func,
-        type_tid,
-        configured_functions,
-        &mut used_types,
-        imports,
-    );
+    let ret = return_value::analyze(env, func, type_tid, configured_functions, &mut used_types);
     commented |= ret.commented;
 
     let mut params = func.parameters.clone();
@@ -933,11 +926,7 @@ fn analyze_callback(
             }
         }
         if let Ok(s) = used_rust_type(env, func.ret.typ, false) {
-            if s != "GString" {
-                imports_to_add.push(s);
-            } else {
-                imports_to_add.push("String".to_owned());
-            }
+            imports_to_add.push(s);
         }
         let user_data_index = par.user_data_index.unwrap_or_else(|| 0);
         if par.c_type != "GDestroyNotify" && c_parameters.len() <= user_data_index {

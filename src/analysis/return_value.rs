@@ -1,7 +1,7 @@
 use crate::{
     analysis::{
-        imports::Imports, namespaces, override_string_type::override_string_type_return,
-        ref_mode::RefMode, rust_type::*,
+        override_string_type::override_string_type_return, ref_mode::RefMode,
+        rust_type::*,
     },
     config,
     env::Env,
@@ -22,7 +22,6 @@ pub fn analyze(
     type_tid: library::TypeId,
     configured_functions: &[&config::functions::Function],
     used_types: &mut Vec<String>,
-    imports: &mut Imports,
 ) -> Info {
     let typ = configured_functions
         .iter()
@@ -82,13 +81,6 @@ pub fn analyze(
             );
             None
         } else {
-            let ns = if env.namespaces.glib_ns_id == namespaces::MAIN {
-                "error"
-            } else {
-                "glib"
-            };
-            imports.add(ns, None);
-
             Some(m.clone())
         }
     });

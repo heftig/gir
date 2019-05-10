@@ -1,7 +1,7 @@
 use std::collections::btree_map::{BTreeMap, Iter};
 
 use super::namespaces;
-use crate::{library::Library, nameutil::crate_name, version::Version};
+use crate::{library::Library, nameutil, version::Version};
 
 /// Provides assistance in generating use declarations.
 ///
@@ -22,19 +22,23 @@ pub struct Imports {
 
 impl Imports {
     pub fn new(gir: &Library) -> Imports {
+        let crate_name = nameutil::crate_name(&gir.namespace(namespaces::MAIN).name);
+        let crate_name = nameutil::higher_crate_name(&crate_name).into();
         Imports {
-            crate_name: make_crate_name(gir),
+            crate_name,
             defined: None,
             map: BTreeMap::new(),
         }
     }
 
     pub fn with_defined(gir: &Library, name: &str) -> Imports {
-        Imports {
-            crate_name: make_crate_name(gir),
-            defined: Some(name.to_owned()),
-            map: BTreeMap::new(),
-        }
+        let mut imports = Imports::new(gir);
+        imports.defined = Some(imports.make_local_name(name));
+        imports
+    }
+
+    fn make_local_name(&self, name: &str) -> String {
+        format!("{}::{}", self.crate_name, name)
     }
 
     /// Declares that name should be available through its last path component.
@@ -47,10 +51,7 @@ impl Imports {
             }
         }
         if let Some(name) = self.strip_crate_name(name) {
-            let entry = self
-                .map
-                .entry(name.to_owned())
-                .or_insert((version, Vec::new()));
+            let entry = self.map.entry(name).or_insert((version, Vec::new()));
             if version < entry.0 {
                 *entry = (version, Vec::new());
             } else {
@@ -75,10 +76,7 @@ impl Imports {
             }
         }
         if let Some(name) = self.strip_crate_name(name) {
-            let entry = self
-                .map
-                .entry(name.to_owned())
-                .or_insert((version, Vec::new()));
+            let entry = self.map.entry(name).or_insert((version, Vec::new()));
             if version < entry.0 {
                 *entry = (version, Vec::new());
             } else {
@@ -94,18 +92,9 @@ impl Imports {
         }
     }
 
-    /// Declares that name should be available through its full path.
-    ///
-    /// For example, if name is `X::Y` then it will be available as `X::Y`.
     pub fn add_used_type(&mut self, used_type: &str, version: Option<Version>) {
-        if let Some(i) = used_type.find("::") {
-            if i == 0 {
-                self.add(&used_type[2..], version);
-            } else {
-                self.add(&used_type[..i], version);
-            }
-        } else {
-            self.add(used_type, version);
+        if used_type.find("::").is_none() {
+            self.add(&self.make_local_name(used_type), version);
         }
     }
 
@@ -117,34 +106,18 @@ impl Imports {
 
     /// Tries to strip crate name prefix from given name.
     ///
-    /// Returns `None` if name matches crate name exactly. Otherwise returns
-    /// name with crate name prefix stripped or full name if there was no match.
-    fn strip_crate_name<'a>(&self, name: &'a str) -> Option<&'a str> {
+    /// Returns `None` if name matches crate name exactly. Otherwise returns name with crate name
+    /// prefix replaced with `crate` or full name if there was no match.
+    fn strip_crate_name<'a>(&self, name: &'a str) -> Option<String> {
         let prefix = &self.crate_name;
-        if !name.starts_with(prefix) {
-            return Some(name);
-        }
-        let rest = &name[prefix.len()..];
-        if rest.is_empty() {
-            None
-        } else if rest.starts_with("::") {
-            Some(&rest["::".len()..])
-        } else {
-            // It was false positive, return the whole name.
-            Some(name)
+        match name.find("::") {
+            Some(i) if &name[..i] == prefix => Some(format!("crate{}", &name[i..])),
+            None if name == prefix => None,
+            _ => Some(name.into()),
         }
     }
 
     pub fn iter(&self) -> Iter<String, (Option<Version>, Vec<String>)> {
         self.map.iter()
-    }
-}
-
-fn make_crate_name(gir: &Library) -> String {
-    let name = gir.namespace(namespaces::MAIN).name.as_str();
-    if name == "GObject" {
-        crate_name("GLib")
-    } else {
-        crate_name(name)
     }
 }

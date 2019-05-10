@@ -25,9 +25,9 @@ impl ToReturnValue for library::Parameter {
         let mut name = rust_type.into_string();
         if is_trampoline
             && self.direction == library::ParameterDirection::Return
-            && name == "GString"
+            && name == env.namespaces.gstring_name
         {
-            name = "String".to_owned();
+            name = "String".into();
         }
         let type_str = match ConversionType::of(env, self.typ) {
             ConversionType::Unknown => format!("/*Unknown conversion*/{}", name),

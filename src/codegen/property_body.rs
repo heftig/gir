@@ -127,16 +127,13 @@ impl Builder {
             call: Box::new(ffi_call),
         });
 
-        let unwrap = if self.is_nullable {
+        let unwrap = match &*self.type_ {
+            _ if !self.is_nullable => ".unwrap()",
+
             // This one is strictly speaking nullable, but
             // we represent that with an empty Vec instead
-            if self.type_ == "Vec<GString>" {
-                ".unwrap()"
-            } else {
-                ""
-            }
-        } else {
-            ".unwrap()"
+            "Vec<crate::GString>" | "Vec<glib::GString>" => ".unwrap()",
+            _ => "",
         };
         body.push(Chunk::Custom(format!("value.get(){}", unwrap)));
 

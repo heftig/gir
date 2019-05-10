@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    analysis::{self, general::StatusedTypeId, imports::Imports, namespaces},
+    analysis::{self, general::StatusedTypeId, imports::Imports},
     config::{derives::Derive, Config},
     env::Env,
     gir_version::VERSION,
@@ -68,15 +68,16 @@ pub fn uses(w: &mut Write, env: &Env, imports: &Imports) -> Result<()> {
 }
 
 fn format_parent_name(env: &Env, p: &StatusedTypeId) -> String {
-    if p.type_id.ns_id == namespaces::MAIN {
-        p.name.clone()
-    } else {
-        format!(
-            "{krate}::{name}",
-            krate = env.namespaces[p.type_id.ns_id].crate_name,
-            name = p.name,
-        )
+    let ns_id = p.type_id.ns_id;
+    if env.namespaces[ns_id].is_main {
+        return p.name.clone();
     }
+
+    format!(
+        "{krate}::{name}",
+        krate = &env.namespaces[ns_id].higher_crate_name(),
+        name = p.name,
+    )
 }
 
 pub fn define_object_type(

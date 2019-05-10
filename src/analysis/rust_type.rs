@@ -17,6 +17,10 @@ pub enum TypeError {
 
 pub type Result = result::Result<String, TypeError>;
 
+fn ok<S: Into<String>>(s: S) -> Result {
+    Ok(s.into())
+}
+
 fn into_inner(res: Result) -> String {
     use self::TypeError::*;
     match res {
@@ -106,14 +110,20 @@ pub fn rust_type_full(
     concurrency: library::Concurrency,
 ) -> Result {
     use crate::library::{Fundamental::*, Type::*};
-    let ok = |s: &str| Ok(s.into());
-    let err = |s: &str| Err(TypeError::Unimplemented(s.into()));
+    let reftype = |r: &str, o: &str| ok(if ref_mode.is_ref() { r } else { o });
+    let glibtype = |s: &str| {
+        ok(format!(
+            "{}::{}",
+            env.namespaces.glib().local_crate_name(),
+            s
+        ))
+    };
     let mut skip_option = false;
     let type_ = env.library.type_(type_id);
     let mut rust_type = match *type_ {
         Fundamental(fund) => {
             match fund {
-                None => err("()"),
+                None => Err(TypeError::Unimplemented("()".into())),
                 Boolean => ok("bool"),
                 Int8 => ok("i8"),
                 UInt8 => ok("u8"),
@@ -139,44 +149,23 @@ pub fn rust_type_full(
                 Double => ok("f64"),
 
                 UniChar => ok("char"),
-                Utf8 => {
-                    if ref_mode.is_ref() {
-                        ok("str")
-                    } else {
-                        ok("GString")
-                    }
-                }
-                Filename => {
-                    if ref_mode.is_ref() {
-                        ok("std::path::Path")
-                    } else {
-                        ok("std::path::PathBuf")
-                    }
-                }
-                OsString => {
-                    if ref_mode.is_ref() {
-                        ok("std::ffi::OsStr")
-                    } else {
-                        ok("std::ffi::OsString")
-                    }
-                }
-                Type if env.namespaces.glib_ns_id == library::MAIN_NAMESPACE => ok("types::Type"),
-                Type => ok("glib::types::Type"),
-                Char if env.namespaces.glib_ns_id == library::MAIN_NAMESPACE => ok("Char"),
-                Char => ok("glib::Char"),
-                UChar if env.namespaces.glib_ns_id == library::MAIN_NAMESPACE => ok("UChar"),
-                UChar => ok("glib::UChar"),
-                Unsupported => err("Unsupported"),
-                _ => err(&format!("Fundamental: {:?}", fund)),
+                Utf8 => reftype("str", &*env.namespaces.gstring_name),
+                Filename => reftype("std::path::Path", "std::path::PathBuf"),
+                OsString => reftype("std::ffi::OsStr", "std::ffi::OsString"),
+                Type => glibtype("types::Type"),
+                Char => glibtype("Char"),
+                UChar => glibtype("UChar"),
+                Unsupported => Err(TypeError::Unimplemented("Unsupported".into())),
+                _ => Err(TypeError::Unimplemented(format!("Fundamental: {:?}", fund))),
             }
         }
         Alias(ref alias) => rust_type_full(env, alias.typ, nullable, ref_mode, scope, concurrency)
             .map_any(|_| alias.name.clone()),
         Record(library::Record { ref c_type, .. }) if c_type == "GVariantType" => {
             if ref_mode.is_ref() {
-                ok("VariantTy")
+                glibtype("VariantTy")
             } else {
-                ok("VariantType")
+                glibtype("VariantType")
             }
         }
         Enumeration(..) | Bitfield(..) | Record(..) | Union(..) | Class(..) | Interface(..) => {
@@ -276,12 +265,12 @@ pub fn rust_type_full(
                         s.push(format!(
                             "{}{}",
                             if is_fundamental { "" } else { "&" },
-                            if y != "GString" {
-                                x
+                            if y != env.namespaces.gstring_name {
+                                &x
                             } else if *p.nullable {
-                                "Option<&str>".to_owned()
+                                "Option<&str>"
                             } else {
-                                "&str".to_owned()
+                                "&str"
                             }
                         ));
                     }
@@ -305,7 +294,7 @@ pub fn rust_type_full(
                         "{}({}) -> {}{}",
                         closure_kind,
                         s.join(", "),
-                        if y != "GString" {
+                        if y != env.namespaces.gstring_name {
                             &x
                         } else if *f.ret.nullable {
                             "Option<String>"
@@ -345,17 +334,23 @@ pub fn rust_type_full(
         _ => Err(TypeError::Unimplemented(type_.get_name().to_owned())),
     };
 
-    if type_id.ns_id != library::MAIN_NAMESPACE
-        && type_id.ns_id != library::INTERNAL_NAMESPACE
-        && !implemented_in_main_namespace(&env.library, type_id)
-        && type_id.full_name(&env.library) != "GLib.DestroyNotify"
-        && type_id.full_name(&env.library) != "GObject.Callback"
-    {
-        if env.type_status(&type_id.full_name(&env.library)).ignored() {
-            rust_type = Err(TypeError::Ignored(into_inner(rust_type)));
+    match &*type_id.full_name(&env.library) {
+        "GLib.Error" | "GLib.DestroyNotify" | "GObject.Callback" => {}
+        _ if type_id.ns_id == library::MAIN_NAMESPACE => {}
+        _ if type_id.ns_id == library::INTERNAL_NAMESPACE => {}
+        _ => {
+            if env.type_status(&type_id.full_name(&env.library)).ignored() {
+                rust_type = Err(TypeError::Ignored(into_inner(rust_type)));
+            }
+
+            rust_type = rust_type.map_any(|s| {
+                format!(
+                    "{}::{}",
+                    env.namespaces[type_id.ns_id].higher_crate_name(),
+                    s
+                )
+            });
         }
-        rust_type = rust_type
-            .map_any(|s| format!("{}::{}", env.namespaces[type_id.ns_id].higher_crate_name, s));
     }
 
     match ref_mode {
@@ -401,8 +396,8 @@ pub fn used_rust_type(env: &Env, type_id: library::TypeId, is_in: bool) -> Resul
             used_rust_type(env, inner_tid, false)
         }
         Custom(..) => rust_type(env, type_id),
-        Fundamental(library::Fundamental::Utf8) if !is_in => Ok("::glib::GString".into()),
-        _ => Err(TypeError::Ignored("Don't need use".to_owned())),
+        Fundamental(library::Fundamental::Utf8) if !is_in => ok(&*env.namespaces.gstring_name),
+        _ => Err(TypeError::Ignored("Don't need use".into())),
     }
 }
 
@@ -490,9 +485,4 @@ fn format_parameter(rust_type: String, direction: library::ParameterDirection) -
     } else {
         rust_type
     }
-}
-
-//TODO: remove
-fn implemented_in_main_namespace(library: &library::Library, type_id: library::TypeId) -> bool {
-    type_id.full_name(library) == "GLib.Error"
 }

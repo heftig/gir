@@ -65,6 +65,13 @@ pub fn crate_name(name: &str) -> String {
     }
 }
 
+pub fn higher_crate_name(crate_name: &str) -> &str {
+    match crate_name {
+        "gobject" => "glib",
+        x => x,
+    }
+}
+
 /// Crate name with '-' for Cargo.toml etc.
 pub fn exported_crate_name(crate_name: &str) -> String {
     crate_name.replace("_", "-")

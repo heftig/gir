@@ -195,16 +195,11 @@ fn fix_name(env: &Env, type_id: library::TypeId, name: &str) -> Result {
             | Type::PtrArray(..)
             | Type::List(..)
             | Type::SList(..)
-            | Type::HashTable(..) => {
-                if env.namespaces.glib_ns_id == namespaces::MAIN {
-                    Ok(name.into())
-                } else {
-                    Ok(format!(
-                        "{}::{}",
-                        &env.namespaces[env.namespaces.glib_ns_id].crate_name, name
-                    ))
-                }
-            }
+            | Type::HashTable(..) => Ok(format!(
+                "{}::{}",
+                env.namespaces.glib().local_crate_name(),
+                name
+            )),
             _ => Ok(name.into()),
         }
     } else {

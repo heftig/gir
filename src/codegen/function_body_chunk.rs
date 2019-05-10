@@ -299,7 +299,7 @@ impl Builder {
             let nullable = trampoline.parameters.rust_parameters[par.ind_rust].nullable;
             let is_fundamental =
                 add_chunk_for_type(env, par.typ, par, &mut body, &ty_name, nullable);
-            if ty_name == "GString" {
+            if ty_name == env.namespaces.gstring_name {
                 if *nullable {
                     arguments.push(Chunk::Name(format!("{}.map(|x| x.as_str())", par.name)));
                 } else {
@@ -1116,17 +1116,15 @@ fn add_chunk_for_type(
                 begin,
                 par.name,
                 end,
-                if ty_name == "GString" {
-                    if *nullable {
-                        ": Option<GString>"
-                    } else {
-                        ": GString"
-                    }
+                if ty_name != env.namespaces.gstring_name {
+                    "".into()
+                } else if *nullable {
+                    format!(": Option<{}>", env.namespaces.gstring_name)
                 } else {
-                    ""
+                    format!(": {}", env.namespaces.gstring_name)
                 }
             )));
-            if ty_name == "GString" && *nullable {
+            if ty_name == env.namespaces.gstring_name && *nullable {
                 body.push(Chunk::Custom(format!("let {0} = {0}.as_ref();", par.name)));
             }
             x.is_fundamental()
